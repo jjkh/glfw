@@ -7,11 +7,11 @@ pub fn build(b: *std.Build) void {
     const shared = b.option(bool, "shared", "Build as a shared library") orelse false;
 
     const use_x11 = b.option(bool, "x11", "Build with X11. Only useful on Linux") orelse true;
-    const use_wl = b.option(bool, "wayland", "Build with Wayland. Only useful on Linux") orelse true;
+    const use_wl = b.option(bool, "wayland", "Build with Wayland. Only useful on Linux") orelse false;
 
     const use_opengl = b.option(bool, "opengl", "Build with OpenGL; deprecated on MacOS") orelse false;
     const use_gles = b.option(bool, "gles", "Build with GLES; not supported on MacOS") orelse false;
-    const use_metal = b.option(bool, "metal", "Build with Metal; only supported on MacOS") orelse true;
+    const use_metal = b.option(bool, "metal", "Build with Metal; only supported on MacOS") orelse false;
 
     const lib: *std.Build.Step.Compile = switch (shared) {
         inline else => |x| switch (x) {
