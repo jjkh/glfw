@@ -6,6 +6,8 @@ pub fn build(b: *std.Build) void {
 
     const shared = b.option(bool, "shared", "Build as a shared library") orelse false;
 
+    const include_src = b.option(bool, "include_src", "Add the src/ directory as an include directory") orelse false;
+
     const use_x11 = b.option(bool, "x11", "Build with X11. Only useful on Linux") orelse true;
     const use_wl = b.option(bool, "wayland", "Build with Wayland. Only useful on Linux") orelse false;
 
@@ -24,11 +26,17 @@ pub fn build(b: *std.Build) void {
         }),
     };
     lib.addIncludePath(b.path("include"));
+    //if (include_src) lib.addIncludePath(b.path("src"));
     lib.linkLibC();
 
     if (shared) lib.root_module.addCMacro("_GLFW_BUILD_DLL", "1");
 
     lib.installHeadersDirectory(b.path("include/GLFW"), "GLFW", .{});
+    if (include_src) {
+        lib.installHeadersDirectory(b.path("src/"), "GLFW", .{});
+        // To maintain the relative paths inside the files in src/
+        lib.installHeadersDirectory(b.path("include/GLFW"), "include/GLFW", .{});
+    }
     // GLFW headers depend on these headers, so they must be distributed too.
     if (b.lazyDependency("vulkan_headers", .{
         .target = target,
