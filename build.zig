@@ -1,4 +1,5 @@
 const std = @import("std");
+const Step = std.Build.Step;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -37,7 +38,9 @@ pub fn build(b: *std.Build) void {
         // To maintain the relative paths inside the files in src/
         lib.installHeadersDirectory(b.path("include/GLFW"), "include/GLFW", .{});
     }
-    // GLFW headers depend on these headers, so they must be distributed too.
+    //
+    // Header packaging for easy cross compilation
+    //
     if (b.lazyDependency("vulkan_headers", .{
         .target = target,
         .optimize = optimize,
@@ -60,7 +63,7 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    if (target.result.isDarwin()) {
+    if (target.result.os.tag.isDarwin()) {
         // MacOS: this must be defined for macOS 13.3 and older.
         lib.root_module.addCMacro("__kernel_ptr_semantics", "");
 
@@ -74,8 +77,12 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    const include_src_flag = "-Isrc";
-
+    //
+    // Source files
+    //
+    lib.addCSourceFiles(.{
+        .files = &base_sources,
+    });
     switch (target.result.os.tag) {
         .windows => {
             lib.linkSystemLibrary("gdi32");
@@ -90,14 +97,9 @@ pub fn build(b: *std.Build) void {
                 lib.linkSystemLibrary("GLESv3");
             }
 
-            const flags = [_][]const u8{ "-D_GLFW_WIN32", include_src_flag };
-            lib.addCSourceFiles(.{
-                .files = &base_sources,
-                .flags = &flags,
-            });
+            lib.root_module.addCMacro("_GLFW_WIN32", "1");
             lib.addCSourceFiles(.{
                 .files = &windows_sources,
-                .flags = &flags,
             });
         },
         .macos => {
@@ -126,44 +128,35 @@ pub fn build(b: *std.Build) void {
                 lib.linkFramework("OpenGL");
             }
 
-            const flags = [_][]const u8{ "-D_GLFW_COCOA", include_src_flag };
-            lib.addCSourceFiles(.{
-                .files = &base_sources,
-                .flags = &flags,
-            });
+            lib.root_module.addCMacro("_GLFW_COCOA", "1");
             lib.addCSourceFiles(.{
                 .files = &macos_sources,
-                .flags = &flags,
             });
         },
 
         // everything that isn't windows or mac is linux :P
         else => {
-            var sources = std.BoundedArray([]const u8, 64).init(0) catch unreachable;
-            var flags = std.BoundedArray([]const u8, 16).init(0) catch unreachable;
-
-            sources.appendSlice(&base_sources) catch unreachable;
-            sources.appendSlice(&linux_sources) catch unreachable;
+            lib.addCSourceFiles(.{
+                .files = &linux_sources,
+            });
 
             if (use_x11) {
-                sources.appendSlice(&linux_x11_sources) catch unreachable;
-                flags.append("-D_GLFW_X11") catch unreachable;
+                lib.root_module.addCMacro("_GLFW_X11", "1");
+                lib.addCSourceFiles(.{
+                    .files = &linux_x11_sources,
+                });
             }
 
             if (use_wl) {
-                lib.root_module.addCMacro("WL_MARSHAL_FLAG_DESTROY", "1");
+                lib.root_module.addCMacro("_GLFW_WAYLAND", "1");
 
-                sources.appendSlice(&linux_wl_sources) catch unreachable;
-                flags.append("-D_GLFW_WAYLAND") catch unreachable;
-                flags.append("-Wno-implicit-function-declaration") catch unreachable;
+                lib.addCSourceFiles(.{
+                    .files = &linux_wl_sources,
+                    .flags = &.{
+                        "-Wno-implicit-function-declaration",
+                    },
+                });
             }
-
-            flags.append(include_src_flag) catch unreachable;
-
-            lib.addCSourceFiles(.{
-                .files = sources.slice(),
-                .flags = flags.slice(),
-            });
         },
     }
     b.installArtifact(lib);

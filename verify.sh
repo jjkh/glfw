@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git diff $(git merge-base master upstream/master)..master \
+git diff upstream/master \
     --diff-filter=d \
     ':(exclude)README.md' \
     ':(exclude)build.zig' \
