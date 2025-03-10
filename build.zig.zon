@@ -7,11 +7,7 @@
         "src/",
         "build.zig",
         "build.zig.zon",
-        "CONTRIBUTORS.md",
         "LICENSE.md",
-        "README.md",
-        "update.sh",
-        "verify.sh",
     },
     .dependencies = .{
         .xcode_frameworks = .{

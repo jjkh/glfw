@@ -5,6 +5,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const native = b.option(bool, "native", "Do not use dependencies, use system files instead") orelse false;
     const shared = b.option(bool, "shared", "Build as a shared library") orelse false;
 
     const include_src = b.option(bool, "include_src", "Add the src/ directory as an include directory") orelse false;
@@ -41,39 +42,41 @@ pub fn build(b: *std.Build) void {
     //
     // Header packaging for easy cross compilation
     //
-    if (b.lazyDependency("vulkan_headers", .{
-        .target = target,
-        .optimize = optimize,
-    })) |dep| {
-        lib.installLibraryHeaders(dep.artifact("vulkan-headers"));
-    }
-    if (target.result.os.tag == .linux) {
-        if (b.lazyDependency("x11_headers", .{
+    if (!native) {
+        if (b.lazyDependency("vulkan_headers", .{
             .target = target,
             .optimize = optimize,
         })) |dep| {
-            lib.linkLibrary(dep.artifact("x11-headers"));
-            lib.installLibraryHeaders(dep.artifact("x11-headers"));
+            lib.installLibraryHeaders(dep.artifact("vulkan-headers"));
         }
-        if (b.lazyDependency("wayland_headers", .{})) |dep| {
-            lib.addIncludePath(dep.path("wayland"));
-            lib.addIncludePath(dep.path("wayland-protocols"));
-            lib.installHeadersDirectory(dep.path("wayland"), ".", .{});
-            lib.installHeadersDirectory(dep.path("wayland-protocols"), ".", .{});
+        if (target.result.os.tag == .linux) {
+            if (b.lazyDependency("x11_headers", .{
+                .target = target,
+                .optimize = optimize,
+            })) |dep| {
+                lib.linkLibrary(dep.artifact("x11-headers"));
+                lib.installLibraryHeaders(dep.artifact("x11-headers"));
+            }
+            if (b.lazyDependency("wayland_headers", .{})) |dep| {
+                lib.addIncludePath(dep.path("wayland"));
+                lib.addIncludePath(dep.path("wayland-protocols"));
+                lib.installHeadersDirectory(dep.path("wayland"), ".", .{});
+                lib.installHeadersDirectory(dep.path("wayland-protocols"), ".", .{});
+            }
         }
-    }
 
-    if (target.result.os.tag.isDarwin()) {
-        // MacOS: this must be defined for macOS 13.3 and older.
-        lib.root_module.addCMacro("__kernel_ptr_semantics", "");
+        if (target.result.os.tag.isDarwin()) {
+            // MacOS: this must be defined for macOS 13.3 and older.
+            lib.root_module.addCMacro("__kernel_ptr_semantics", "");
 
-        if (b.lazyDependency("xcode_frameworks", .{
-            .target = target,
-            .optimize = optimize,
-        })) |dep| {
-            lib.root_module.addSystemFrameworkPath(dep.path("Frameworks"));
-            lib.root_module.addSystemIncludePath(dep.path("include"));
-            lib.root_module.addLibraryPath(dep.path("lib"));
+            if (b.lazyDependency("xcode_frameworks", .{
+                .target = target,
+                .optimize = optimize,
+            })) |dep| {
+                lib.root_module.addSystemFrameworkPath(dep.path("Frameworks"));
+                lib.root_module.addSystemIncludePath(dep.path("include"));
+                lib.root_module.addLibraryPath(dep.path("lib"));
+            }
         }
     }
 
